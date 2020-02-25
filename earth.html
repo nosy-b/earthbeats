@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Shaking Earth</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+	</head>
+	<body>
+        
+        <div id="container"></div>
+        <div id="info">Loading Data</div>
+        <div id="infoSeismic" style="visibility: hidden;"></div>
+
+
+		<script type="x-shader/x-vertex" id="vertexshaderParticle">
+            attribute float size;
+            attribute vec2 coords;
+            attribute vec3 epicenter;
+            attribute vec3 positionIntroText;
+            uniform float time;
+            uniform float timeSinceMove;
+            uniform vec3 mouse3D;
+            uniform int modeVisu;
+            uniform float magnitude;
+            varying vec3 vColor;
+            varying vec2 vCoords;
+            varying vec3 vPosition;
+            varying float crossProduct;
+            varying float vDeltaPos;
+            varying float vDisplacementRadar;
+            const float M_PI =  3.1415926535897932384626433832795;
+
+
+			void main() {
+
+                vColor = color;
+                vCoords = coords;
+                vPosition = position;
+                vDeltaPos = 1.;
+				vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+				gl_PointSize = max(size, 4.) * ( 300.0 / -mvPosition.z );
+                gl_Position = projectionMatrix * mvPosition;
+                crossProduct = min( 0.4 + 1. - acos( dot(normalize(position), normalize(cameraPosition))), 1.);
+                if(modeVisu > 0){
+                    crossProduct = min( 0.4 + 1. - acos( dot((normalize(modelMatrix * vec4(position, 1.))).xyz, normalize(cameraPosition))), 1.);
+                }
+
+                // Test wave   
+                float PI = 3.14159;
+                float distFromMouse = distance(position, mouse3D) / 10.;
+
+
+                // Seismic place rendering
+                if(modeVisu > 0){
+                    float distToEpicentre = distance(position, epicenter);
+                    vDeltaPos = 10. * sin(distToEpicentre / 2. - time * size / 3.);  // size is magnitude (dirty reuse of ) // 10. * sin(distToEpicentre / 4. - time * 2.);
+                    vec3 nPosition = position * (1. + vDeltaPos / (distToEpicentre * 100.) );
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4( nPosition, 1.0 );
+
+                }
+
+                // Rotating earth local elevation / radar effect
+                float alpha = atan(position.z, position.x) + M_PI;
+                float angularTime = mod(time / 8., 2. * M_PI); 
+                float modulationSize = 0.02;
+                float distToModulation = abs(alpha - angularTime);
+                if(distToModulation < modulationSize){
+                    vDisplacementRadar = modulationSize - distToModulation;    // abs(sin(( angularTime - alpha )  * time  ) ) / 50.;
+                    vec3 nPos = position * ( 1. + vDisplacementRadar / 2.);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4( nPos, 1.0 );
+                }
+
+                // When mouse over earthquake we shake earth locally
+                if(distFromMouse < 8.){
+                    vec3 newPosition = position * (1. + 10. * timeSinceMove * sin(distFromMouse * 4. - time * 2.) /  (distFromMouse * 100.));
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4( newPosition, 1.0 );
+                }
+                
+                // Pos as text intro
+                if(modeVisu < 1 && (time - 8. ) < 1. ){
+
+                  //  vec3 interpolatedPos = mix(position, positionIntroText, max(1. - (time - 8.), 0.));
+                    vec3 interpolatedPos = mix(position, positionIntroText, max(1. - (time - 8. * coords.x ), 0.));
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4( interpolatedPos, 1.0 );
+                }
+
+
+			}
+		</script>
+
+		<script type="x-shader/x-fragment" id="fragmentshaderParticle">
+            uniform sampler2D pointTexture;
+            uniform sampler2D earthTexture;
+            uniform sampler2D earthNightTexture;
+            uniform int modeVisu;
+            uniform float time;
+            uniform float magnitude;
+            varying vec2 vCoords;
+            varying vec3 vColor;
+            varying vec3 vPosition;
+            varying float crossProduct;
+            varying float vDeltaPos;
+            varying float vDisplacementRadar;
+
+            float luminance(float r, float g, float b){
+                return  (r * 0.3) + (g * 0.59) + (b * 0.11);
+            }
+
+			void main() {
+
+				//gl_FragColor = vec4( vColor, 1.0 );
+                //gl_FragColor = 1.5 * texture2D( pointTexture, gl_PointCoord );  // + texture2D( earthNightTexture, gl_PointCoord );
+                //if(modeVisu > 0){ gl_FragColor = gl_FragColor * texture2D( earthTexture, vCoords );}
+                vec4 pointSpriteTexture = texture2D( pointTexture, gl_PointCoord );
+                vec4 earthMap = texture2D( earthNightTexture, vCoords ) * 4.; // + texture2D( earthTexture, vCoords ) * 0.4;
+                gl_FragColor =  crossProduct * earthMap; // pointSpriteTexture;
+                gl_FragColor.a = crossProduct * pointSpriteTexture.a * 10.; // * 0.8;
+
+                if(modeVisu > 0){
+                    float normalizedColor = vDeltaPos / 50.;
+                    gl_FragColor = vec4(vColor + vec3( normalizedColor ), 0.5); // //vec4(1.,0.,0., max(crossProduct, 0.01) );
+                    gl_FragColor.a = crossProduct * pointSpriteTexture.a * 10. * max(normalizedColor, 0.2);
+                }
+
+                gl_FragColor.xyz = mix(gl_FragColor.xyz, vec3(1.,0.,0.5), vDisplacementRadar * 25.);
+
+                // We do horizon culling
+                //float maxDist = sqrt(length(vPosition) * length(vPosition) + length(cameraPosition) * length(cameraPosition));
+                
+
+			}
+        </script>
+        
+           
+
+		<script type="x-shader/x-vertex" id="vertexshaderEarth">
+            attribute float size;
+            uniform float time;
+            uniform vec3 mouse3D;
+            varying vec3 vColor;
+            varying vec2 vUv;
+            varying vec3 vPosition;
+            varying float distFromMouse;
+
+			void main() {
+                vColor = color;
+                vUv = uv;
+                vPosition = position;
+				vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+				//gl_PointSize = size * ( 300.0 / -mvPosition.z );
+                //gl_Position = projectionMatrix * mvPosition;
+                
+            // Test wave   
+                float PI = 3.14159;
+                distFromMouse = distance(position, mouse3D) / 10.; // length(position);
+                if(distFromMouse < 8.){
+                    vPosition = position * (1. + 10. * sin(distFromMouse * 4. - time * 2.) /  (distFromMouse * 100.));
+                }
+                gl_Position = projectionMatrix * modelViewMatrix * vec4( vPosition, 1.0 );
+
+			}
+		</script>
+
+		<script type="x-shader/x-fragment" id="fragmentshaderEarth">
+            uniform sampler2D pointTexture;
+            uniform sampler2D earthTexture;
+            uniform sampler2D earthNightTexture;
+            uniform sampler2D earthSpecularTexture;
+            uniform sampler2D earthBumpTexture;
+            uniform int modeVisu;
+            varying vec2 vUv;
+            varying vec3 vColor;
+            varying vec3 vPosition;
+            varying float distFromMouse;
+
+			void main() {
+
+                gl_FragColor =  texture2D( earthNightTexture, vUv); //(1. + (length(vPosition) - 199.) / 10. ) * texture2D( earthBumpTexture, vUv);
+                if(modeVisu == 1) {
+                    gl_FragColor.a =  1. - distFromMouse / 8.;
+                }
+                vec4 col = texture2D( earthSpecularTexture, vUv);
+                if(col.b > 0.9) 
+                    gl_FragColor = vec4(0.,0.,0.,0.); // gl_FragColor.a = 0.;
+
+			}
+		</script>
+
+		<script type="module">
+
+            import * as THREE from './three.module.js';
+            import { OrbitControls } from './controls/OrbitControls.js';
+			var renderer, scene, camera, controls;
+			var particleSystemEarth, uniforms, geometry;
+            var particles = 100000;
+            var cloudsSphere;
+            var earthSphere;
+            var earthSphereBackSide;
+            var wireframe;
+            var time = 0;
+            var timeSinceMove = 1;
+            var raycaster = new THREE.Raycaster();
+            var mouse = new THREE.Vector2();
+            var mouse3D = new THREE.Vector3();
+            var textMesh;
+            var seismicParticleSystem;
+            var allEarthquakeCenterObjects = [];
+            var raycaster = new THREE.Raycaster();
+            var mouse = new THREE.Vector2();
+            var radius = 200;
+
+            init();
+            
+            /*
+                var light = new THREE.DirectionalLight(0xffffff,0.5);
+                light.position.set(-1,0,1);
+                scene.add(light);
+
+                var smokeTexture = new THREE.TextureLoader().load('textures/Smoke-Element.png');
+                var smokeMaterial = new THREE.MeshLambertMaterial({color: 0xeeeeee, map: smokeTexture, transparent: true});
+                var smokeGeo = new THREE.PlaneGeometry(300,300);
+                var smokeParticles = new THREE.Object3D();
+
+                for (var p = 0; p < 150; p++) {
+                    var particle = new THREE.Mesh(smokeGeo,smokeMaterial);
+                    particle.position.set(Math.random()*500-250,Math.random()*500-250,Math.random()*1000-100);
+                    particle.rotation.z = Math.random() * 360;
+                    smokeParticles.add(particle);
+                }
+                
+                function evolveSmoke() {
+                    smokeParticles.rotation.copy(camera.rotation);
+                    var sp = smokeParticles.children.length;
+                    while(sp--) {
+                        smokeParticles.children[sp].rotation.z = (time * 0.3);
+                    }
+                }
+                scene.add(smokeParticles);
+            */
+
+            
+            
+            
+			function init() {
+
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 5000 );
+				camera.position.z = 400;
+                scene = new THREE.Scene();
+
+				renderer = new THREE.WebGLRenderer({antialias:true});
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				var container = document.getElementById( 'container' );
+                container.appendChild( renderer.domElement );
+                
+                controls = new OrbitControls( camera, renderer.domElement );
+                controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
+				controls.dampingFactor = 0.05;
+				controls.screenSpacePanning = false;
+				controls.minDistance = 100;
+				controls.maxDistance = 2000;
+
+
+				uniforms = {
+                    time: {value: time},
+                    timeSinceMove: {value: timeSinceMove},
+                    mouse3D: {value: mouse3D},
+                    modeVisu: {value: 0},
+                    magnitude: {value:0},
+                    pointTexture: { value: new THREE.TextureLoader().load( "textures/spark1.png" ) },
+                    earthTexture: { value: new THREE.TextureLoader().load( "textures/BlackMarble_2016_3km.jpg"/*"textures/8k_earth_daymap.jpg" */) },
+                    earthNightTexture: { value: new THREE.TextureLoader().load( "textures/BlackMarble_2016_3km.jpg" ) },
+                    earthSpecularTexture: { value: new THREE.TextureLoader().load( "textures/2k_earth_specular_map.jpg" ) },
+                    earthBumpTexture: { value: new THREE.TextureLoader().load( "textures/elev_bump_2k.jpg" ) }
+				};
+
+				var shaderMaterialParticles = new THREE.ShaderMaterial( {
+
+					uniforms: uniforms,
+					vertexShader: document.getElementById( 'vertexshaderParticle' ).textContent,
+					fragmentShader: document.getElementById( 'fragmentshaderParticle' ).textContent,
+
+                    blending: THREE.AdditiveBlending,
+					depthTest: false,
+					transparent: true,
+					vertexColors: true
+				} );
+
+                
+         /*           
+                // Test creating text geometry to get vertices to particles 
+
+                var loader = new THREE.FontLoader();
+
+                loader.load( 'SuperYeastyRegular.json', function ( font ) {  // https://threejs.org/examples/fonts/helvetiker_regular.typeface.json
+
+                    var geometry = new THREE.TextGeometry( 'Earth Beats', {
+                        font: font,
+                        size: 80,
+                        height: 5,
+                        curveSegments: 12,
+                        bevelEnabled: true,
+                        bevelThickness: 10,
+                        bevelSize: 8,
+                        bevelOffset: 0,
+                        bevelSegments: 5
+                    } );
+
+                    textMesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({wireframe: true}));
+                    // scene.add(textMesh);
+
+                    // Now we transform the text into particles
+                    
+                    console.log("text: ",textMesh);
+                    createEarth();
+
+                } );
+        */
+
+                
+
+                function createEarth(){
+
+                    geometry = new THREE.BufferGeometry();
+                    var positions = [];
+                    var epicenters = [];
+                    var positionsIntroText = [];
+                    var colors = [];
+                    var sizes = [];
+                    var coords =  [];
+                    var color = new THREE.Color();
+
+                    var nbPerlongitude = 700;
+                    var nbPerLatitude = nbPerlongitude / 2;
+                    var particleRadius = radius * 1;
+                    var textInc = 0;
+                    //var textPosArray = textMesh.geometry.vertices;
+    
+                    for ( var i = 0; i < nbPerlongitude; ++i){
+
+                        var phi = i / nbPerlongitude * 2 * Math.PI;
+                        for ( var j = 0; j < nbPerLatitude; ++j){
+                            
+                            var theta = j / nbPerLatitude * Math.PI;
+                            
+                                var x = - particleRadius * Math.cos(phi) * Math.sin(theta);
+                                var y = particleRadius * Math.cos(theta);
+                                var z = particleRadius * Math.sin(phi) * Math.sin(theta);
+                                
+                                coords.push( i / nbPerlongitude,  1 - j / nbPerLatitude);
+                            /*    var posText = textPosArray[textInc];
+                                var nexPosText = posText.clone();
+                                if(textInc < textPosArray.length -1)
+                                    nexPosText = textPosArray[textInc + 1];
+                                var avPos = (posText.add(nexPosText)).divideScalar(2.); //.addScalar(Math.random());
+                                textInc++;
+                                if(textInc >= textPosArray.length) textInc = 0;
+                            */
+                                var p_2 = particleRadius /2;
+                                // positionsIntroText.push(avPos.x - 180, avPos.y + Math.random(), avPos.z+ 80 );
+                                positionsIntroText.push(Math.random() * particleRadius - p_2, Math.random() * particleRadius - p_2,Math.random() * particleRadius - p_2);
+                                positions.push(x, y, z);
+                                epicenters.push(x, y, z);
+                                colors.push(0.5, 0., 1.);
+                                sizes.push(6);
+                            
+                        }
+                    }
+
+                    geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( positions, 3 ) );
+                    geometry.setAttribute( 'positionIntroText', new THREE.Float32BufferAttribute( positionsIntroText, 3 ) );
+                    geometry.setAttribute( 'epicenter', new THREE.Float32BufferAttribute( epicenters, 3 ) );
+                    geometry.setAttribute( 'coords', new THREE.Float32BufferAttribute( coords, 2 ) );
+                    geometry.setAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
+                    geometry.setAttribute( 'size', new THREE.Float32BufferAttribute( sizes, 1 ).setUsage( THREE.DynamicDrawUsage ) );
+
+                    particleSystemEarth = new THREE.Points( geometry, shaderMaterialParticles );
+
+                    scene.add( particleSystemEarth ); console.log("particleSystemEarth", particleSystemEarth);
+
+                    animate();
+
+                }
+
+                createEarth();
+
+                //	controls.maxPolarAngle = Math.PI / 2;
+
+                window.addEventListener( 'resize', onWindowResize, false );
+              /*  
+                // clouds
+                var geometryClouds = new THREE.SphereGeometry( radius + 3, 32, 32 );
+                var material = new THREE.MeshBasicMaterial( { 
+                     transparent:true,
+                     opacity: 0.2,
+                     map: new THREE.TextureLoader().load( "textures/4k_earth_clouds.jpg" ),
+                     blending: THREE.AdditiveBlending,
+                });
+                cloudsSphere = new THREE.Mesh( geometryClouds, material );
+                */
+                //scene.add( cloudsSphere );
+
+
+
+                // Version Mesh of the earth
+                var uniformsEarth = {
+                    time: {value: time},
+                    mouse3D: {value: mouse3D},
+                    modeVisu: {value: 0},
+                    pointTexture: { value: new THREE.TextureLoader().load( "textures/spark1.png" ) },
+                    earthTexture: { value: new THREE.TextureLoader().load( "textures/4k_earth_daymap.jpg" ) },
+                    earthNightTexture: { value: new THREE.TextureLoader().load( "textures/4k_earth_nightmap.jpg" ) },
+                    earthSpecularTexture: { value: new THREE.TextureLoader().load( "textures/2k_earth_specular_map.jpg" ) },
+                    earthBumpTexture: { value: new THREE.TextureLoader().load( "textures/elev_bump_2k.jpg" ) }
+				};
+
+				var shaderMaterialEarth = new THREE.ShaderMaterial( {
+
+					uniforms: uniformsEarth,
+					vertexShader: document.getElementById( 'vertexshaderEarth' ).textContent,
+					fragmentShader: document.getElementById( 'fragmentshaderEarth' ).textContent,
+
+                    //blending: THREE.AdditiveBlending,
+                    //wireframe: true,
+                    side:THREE.FrontSide,
+					depthTest: true,
+					transparent: true,
+					vertexColors: true
+                } );
+                
+                var shaderMaterialEarthBackSide = new THREE.ShaderMaterial( {
+
+                    uniforms: uniformsEarth,
+                    vertexShader: document.getElementById( 'vertexshaderEarth' ).textContent,
+                    fragmentShader: document.getElementById( 'fragmentshaderEarth' ).textContent,
+
+                    //blending: THREE.AdditiveBlending,
+                    //wireframe: true,
+                    side:THREE.BackSide,
+                    depthTest: true,
+                    transparent: false,
+                    vertexColors: true
+                } );
+
+                var geometryEarth = new THREE.SphereBufferGeometry( radius , 128, 128);
+                earthSphere = new THREE.Mesh( geometryEarth, shaderMaterialEarth);
+
+                var geometryEarthBackSide = new THREE.SphereBufferGeometry( radius , 128, 128);
+                earthSphereBackSide = new THREE.Mesh( geometryEarthBackSide, shaderMaterialEarthBackSide);
+
+                
+                // Version Lines of the earth
+                var uniformsLines= {
+                    time: {value: time},
+                    mouse3D: {value: mouse3D},
+                    modeVisu: {value: 1},
+                    pointTexture: { value: new THREE.TextureLoader().load( "textures/spark1.png" ) },
+                    earthTexture: { value: new THREE.TextureLoader().load( "textures/4k_earth_daymap.jpg" ) },
+                    earthNightTexture: { value: new THREE.TextureLoader().load( "textures/4k_earth_nightmap.jpg" ) },
+                    earthSpecularTexture: { value: new THREE.TextureLoader().load( "textures/2k_earth_specular_map.jpg" ) },
+                    earthBumpTexture: { value: new THREE.TextureLoader().load( "textures/elev_bump_2k.jpg" ) }
+                };
+                
+				var shaderMaterialLines = new THREE.ShaderMaterial( {
+
+                    uniforms: uniformsLines,
+                    vertexShader: document.getElementById( 'vertexshaderEarth' ).textContent,
+                    fragmentShader: document.getElementById( 'fragmentshaderEarth' ).textContent,
+
+                    // blending: THREE.AdditiveBlending,
+                    // wireframe: true,
+                    depthTest: true,
+                    transparent: true,
+                    vertexColors: true
+                } );
+                const wireframeGeometry = new THREE.WireframeGeometry( geometryEarth );
+                const wireframeMaterial = new THREE.LineBasicMaterial( { /*color: 0xff0000*/ } );
+                wireframe = new THREE.LineSegments( wireframeGeometry, shaderMaterialLines );
+               // earthSphere.add( wireframe );
+
+             //   scene.add( earthSphere );
+                //scene.add(earthSphereBackSide);
+
+
+
+                getSeismicData();
+
+			}
+
+            
+          
+
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+
+			function animate() {
+                controls.update(); 
+
+               // if( seismicParticleSystem && seismicParticleSystem.scale.x < 1)
+               //     seismicParticleSystem.scale.addScalar(0.04);
+               //if( seismicParticleSystem && seismicParticleSystem.material.opacity < 1)
+              //      seismicParticleSystem.material.opacity += 0.01;
+				requestAnimationFrame( animate );
+				render();
+			}
+
+			function render() {
+
+                time += 0.001;
+                if(timeSinceMove > 0 ) timeSinceMove -= 0.02;
+                //cloudsSphere.rotation.y = time / 10.;
+                particleSystemEarth.material.uniforms.time.value = time * 40.;
+                particleSystemEarth.material.uniforms.timeSinceMove.value = timeSinceMove;
+                // earthSphere.material.uniforms.time.value = time * 40.; 
+                // earthSphereBackSide.material.uniforms.time.value = time * 40.;
+                //wireframe.material.uniforms.time.value = time * 40.; 
+                geometry.attributes.size.needsUpdate = true;
+                if(seismicParticleSystem)
+                    seismicParticleSystem.material.uniforms.time.value = time * 40.;
+
+                // evolveSmoke();
+                //console.log(camera.position);
+                renderer.render( scene, camera );
+                
+            }
+            
+            function onMouseMove( event ) {
+                
+                if(event.buttons == 0 ){
+                    // timeSinceMove = 1;
+                    mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+                    mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+                    // update the picking ray with the camera and mouse position
+                    raycaster.setFromCamera( mouse, camera );
+
+                    // calculate objects intersecting the picking ray
+                    //var intersects = raycaster.intersectObjects( [cloudsSphere] );
+                    var intersects = raycaster.intersectObjects( allEarthquakeCenterObjects );
+                    var div = document.getElementById('infoSeismic');
+                    div.style.visibility = "hidden";
+                    for ( var i = 0; i < intersects.length; i++ ) {
+                        var inter = intersects[ i ];
+                        mouse3D = inter.point;
+                        if(inter.object.evt){
+                            timeSinceMove = 1;
+                            var left  = event.pageX - 140 + "px";
+                            var top  = event.clientY  + "px";
+                            div.style.left = left;
+                            div.style.top = top;
+                            div.innerText = inter.object.evt.eventLocationName + 
+                            '\nMagnitude:  ' +  inter.object.evt.Magnitude + 
+                            '\n ' +  inter.object.evt.time;
+                            div.style.visibility = "visible";
+                        }
+                    }
+
+                    
+                    particleSystemEarth.material.uniforms.mouse3D.value = mouse3D; 
+                    earthSphere.material.uniforms.mouse3D.value = mouse3D;
+                    earthSphereBackSide.material.uniforms.mouse3D.value = mouse3D;
+                    wireframe.material.uniforms.mouse3D.value = mouse3D;
+                }
+            }
+
+            window.addEventListener( 'mousemove', onMouseMove, false );
+     
+
+            /********************************** Part regarding the seismic data ***************************/
+
+            // Url to access data: https://service.iris.edu/fdsnws/event/1/query?starttime=2019-12-18T00:00:00&endtime=2019-12-19T23:00:00&includeallmagnitudes=true&orderby=time&format=text&nodata=404
+            // We get the data using text cause it's much faster to access and lighter
+            // Seismic event is 12 elements
+            var seismicArray = [];
+            function getSeismicData(){
+
+                var yesterday = new Date(new Date().getTime() - (24 * 3600 * 1000)).toISOString();
+                
+                fetch('https://service.iris.edu/fdsnws/event/1/query?starttime=' + yesterday + '&includeallmagnitudes=true&orderby=time&format=text&nodata=404').then(
+                        function(response) {
+                            if (response.status !== 200) {
+                                console.log('Looks like there was a problem. Status Code: ' + response.status);
+                                return;
+                            }
+                            response.text().then(function(data) {
+                                //console.log(data);
+                                var st = data.replace(/[\/]/g, "");
+                                var seismicDataArray = st.split(/[\r\n]+/gm); // split(new RegExp("\n")); // split(/\r?\n/) //split(/[\r\n]+/gm); // replace( /[\r\n]+/gm, "" ).split('|');
+                                //console.log(seismicDataArray);
+                                for(var i = 1; i < seismicDataArray.length; ++i){
+                                    var seismicEvent = seismicDataArray[i].split("|");
+                                    //console.log(seismicEvent);
+                                    seismicArray.push({ eventID : seismicEvent[0],
+                                                        time : seismicEvent[1],
+                                                        latitude : seismicEvent[2],
+                                                        longitude : seismicEvent[3],
+                                                        depth : seismicEvent[4],
+                                                        author : seismicEvent[5],
+                                                        catalog : seismicEvent[6],
+                                                        contributor : seismicEvent[7],
+                                                        contributorID : seismicEvent[8],
+                                                        MagType : seismicEvent[9],
+                                                        Magnitude : seismicEvent[10],
+                                                        MagAuthor : seismicEvent[11],
+                                                        eventLocationName : seismicEvent[12]
+                                                    });
+                                }
+                                //console.log(seismicArray);
+
+                                // Then we can launch the visualization of that data
+                                displaySeismicData();
+
+                            });
+                            
+                        }
+                    ).catch(function(err) {
+                        console.log('Fetch Error :-S', err);
+                    });
+
+            }
+
+
+            // We have all the seismic data (seismicArray), we can now make a nice visualization for it
+            // ex eventID: "11159981"
+            /*
+                time: "2019-12-19T12:07:55"
+                latitude: "32.525"
+                longitude: "87.0848"
+                depth: "10.0"
+                author: "us"
+                catalog: "NEIC PDE"
+                contributor: "us"
+                contributorID: "us70006nf9"
+                MagType: "mb"
+                Magnitude: "4.9"
+                MagAuthor: "us"
+                eventLocationName: "XIZANG"
+            */
+            function displaySeismicData(){
+                
+				var uniforms = {
+                    time: {value: time},
+                    timeSinceMove: {value: timeSinceMove},
+                    mouse3D: {value: mouse3D},
+                    magnitude: {value:0},
+                    modeVisu: {value: 1},
+                    epicenter: {value: new THREE.Vector3()},
+                    pointTexture: { value: new THREE.TextureLoader().load( "textures/spark1.png" ) },
+                    earthTexture: { value: new THREE.TextureLoader().load( "textures/4k_earth_daymap.jpg" ) },
+                    earthNightTexture: { value: new THREE.TextureLoader().load( "textures/4k_earth_nightmap.jpg" ) },
+                    earthSpecularTexture: { value: new THREE.TextureLoader().load( "textures/2k_earth_specular_map.jpg" ) },
+                    earthBumpTexture: { value: new THREE.TextureLoader().load( "textures/elev_bump_2k.jpg" ) }
+				};
+
+				var shaderMaterialParticles = new THREE.ShaderMaterial( {
+
+					uniforms: uniforms,
+					vertexShader: document.getElementById( 'vertexshaderParticle' ).textContent,
+					fragmentShader: document.getElementById( 'fragmentshaderParticle' ).textContent,
+                    blending: THREE.AdditiveBlending,
+					depthTest: false,
+					transparent: true,
+					vertexColors: true
+				} );
+                
+				var radius = 200 + 2;
+				var geometry = new THREE.BufferGeometry();
+                var positions = [];
+                var epicenters = [];
+				var colors = [];
+                var sizes = [];
+                var coords =  [];
+				var color = new THREE.Color();
+
+                var nbParticlesPerSeism = 4000;
+                var noise = 0.10;
+                var maxDistanceToEpicenter = 15;
+                var geometryCone = new THREE.SphereBufferGeometry(7,4,4);//THREE.ConeGeometry( 5, 20, 32 );
+
+                var materialCone = new THREE.MeshBasicMaterial( {color: 0xffff00, transparent: true, opacity:0.0} );
+
+                var divInfo = document.getElementById('info');
+                divInfo.innerText = "Showing " + seismicArray.length + " earthquakes for the last 24 hours";
+
+               // allEarthquakeCenterObjects.push(earthSphere);  // We add the earth for picking reason
+
+                for(var i in seismicArray){
+
+                    if(seismicArray[i].eventID != ''){
+                        var evt = seismicArray[i];
+                        var lon = Math.PI + parseFloat(evt.longitude) / 180 * Math.PI;
+                        var lat = Math.PI / 2 - parseFloat(evt.latitude) / 180 * Math.PI;
+                        var magnitude = parseFloat(evt.Magnitude);
+                        var x = - radius * Math.cos(lon) * Math.sin(lat);
+                        var y = radius * Math.cos(lat);
+                        var z = radius * Math.sin(lon) * Math.sin(lat); 
+
+                        var cone = new THREE.Mesh( geometryCone, materialCone );
+                        cone.evt = evt;
+                        //console.log(cone.evt);
+                        
+                        cone.position.set(x,y,z);
+                        cone.up.copy(new THREE.Vector3(x,y,z));
+                        allEarthquakeCenterObjects.push(cone);
+                        scene.add( cone );
+
+                        for(var j = 0; j < nbParticlesPerSeism; ++j){
+
+                            // Ugly way with lon lat noisy
+                            var noiseLon = lon + (Math.random() - 0.5) * noise * 4.;//* magnitude;
+                            var noiseLat = lat + (Math.random() - 0.5) * noise * 4.;// * magnitude;
+                            var x2 = - radius * Math.cos(noiseLon) * Math.sin(noiseLat);
+                            var y2 = radius * Math.cos(noiseLat);
+                            var z2 = radius * Math.sin(noiseLon) * Math.sin(noiseLat);
+                            var pos = new THREE.Vector3(x2, y2, z2);
+                            // Version using noise distance to epicenter
+                            // 2D circle var nx = 
+                            var d = new THREE.Vector3(x,y,z).distanceTo(pos);
+                            if(d < maxDistanceToEpicenter){
+                                
+                                positions.push(pos.x, pos.y, pos.z); 
+                                epicenters.push(x, y, z); 
+                                coords.push(lon, lat);
+                                colors.push(d / maxDistanceToEpicenter,0.,1.);
+                                sizes.push(magnitude); // We use it for magnitude
+                            }
+                        }
+                    }
+                }
+                
+                console.log("displayed particles for earthquakes: ", sizes.length);
+                geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( positions, 3 ) );
+                geometry.setAttribute( 'epicenter', new THREE.Float32BufferAttribute( epicenters, 3 ) );
+                geometry.setAttribute( 'coords', new THREE.Float32BufferAttribute( coords, 2 ) );
+				geometry.setAttribute( 'color', new THREE.Float32BufferAttribute( colors, 3 ) );
+				geometry.setAttribute( 'size', new THREE.Float32BufferAttribute( sizes, 1 ).setUsage( THREE.DynamicDrawUsage ) );
+
+                seismicParticleSystem = new THREE.Points( geometry, shaderMaterialParticles );
+                
+                scene.add(seismicParticleSystem); 
+                
+               // seismicParticleSystem.material.opacity = 0.;
+
+            }
+
+
+
+
+
+		</script>
+
+	</body>
+</html>
