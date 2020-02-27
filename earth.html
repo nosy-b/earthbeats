@@ -721,7 +721,7 @@
                             // Version using noise distance to epicenter
                             // 2D circle var nx = 
                             var d = new THREE.Vector3(x,y,z).distanceTo(pos);
-                            if(d < maxDistanceToEpicenter){
+                            if(d < maxDistanceToEpicenter / 4 + 2 * magnitude){
                                 
                                 positions.push(pos.x, pos.y, pos.z); 
                                 epicenters.push(x, y, z); 
