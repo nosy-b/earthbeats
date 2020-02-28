@@ -73,8 +73,8 @@
                 }
 
                 // When mouse over earthquake we shake earth locally
-                if(distFromMouse < .05){
-                    vec3 newPosition = position * (1. + 0.1 * sin(distFromMouse * 4. - time * 2.) /  (distFromMouse * 100.));
+                if(distFromMouse < .005){
+                    vec3 newPosition = position * (1. + 0.1 * sin(distFromMouse * 4. - time * 2.) /  (distFromMouse * 1000.));
                     gl_Position = projectionMatrix * modelViewMatrix * vec4( newPosition, 1.0 );
                 }
 
