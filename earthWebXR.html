@@ -39,7 +39,7 @@
                 vPosition = position;
                 vDeltaPos = 1.;
 				vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-				gl_PointSize = 8.; //  max(size, 4.) * ( 300.0 / -mvPosition.z );
+				gl_PointSize = 6.; //  max(size, 4.) * ( 300.0 / -mvPosition.z );
                 gl_Position = projectionMatrix * mvPosition;
                 crossProduct = min( 0.4 + 1. - acos( dot(normalize(position), normalize(cameraPosition))), 1.);
 
@@ -54,6 +54,7 @@
 
                 // Seismic place rendering
                 if(modeVisu > 0){
+                    gl_PointSize = 12.;
                     float distToEpicentre = distance(position, epicenter) * 10000000.;
                     vDeltaPos = 10. * sin(distToEpicentre / 2. - time * size / 3.);  // size is magnitude (dirty reuse of ) // 10. * sin(distToEpicentre / 4. - time * 2.);
                     vec3 nPosition = position * (1. + vDeltaPos / (distToEpicentre * 100.) );
@@ -71,13 +72,19 @@
                     gl_Position = projectionMatrix * modelViewMatrix * vec4( nPos, 1.0 );
                 }
 
+                // When mouse over earthquake we shake earth locally
+                if(distFromMouse < .05){
+                    vec3 newPosition = position * (1. + 0.1 * sin(distFromMouse * 4. - time * 2.) /  (distFromMouse * 100.));
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4( newPosition, 1.0 );
+                }
+
 /*
                 // When mouse over earthquake we shake earth locally
                 if(distFromMouse < 8.){
                     vec3 newPosition = position * (1. + 10. * timeSinceMove * sin(distFromMouse * 4. - time * 2.) /  (distFromMouse * 100.));
                     gl_Position = projectionMatrix * modelViewMatrix * vec4( newPosition, 1.0 );
                 }
- */               
+ */              
 
                 // Pos as text intro
                 if(modeVisu < 1 && (time - 8. ) < 1. ){
@@ -251,7 +258,7 @@
             
 			function init() {
 
-				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.02, 5000 );
+				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.02, 50 );
 				//camera.position.y = 400;
                 scene = new THREE.Scene();
 
@@ -537,14 +544,20 @@
                 //cloudsSphere.rotation.y = time / 10.;
                 particleSystemEarth.material.uniforms.time.value = time * 40.;
                 particleSystemEarth.material.uniforms.timeSinceMove.value = timeSinceMove;
-                // earthSphere.material.uniforms.time.value = time * 40.; 
-                // earthSphereBackSide.material.uniforms.time.value = time * 40.;
-                //wireframe.material.uniforms.time.value = time * 40.; 
+
+                mouse3D = new THREE.Vector3(radius * Math.sin(time), 0,0);
+
+                particleSystemEarth.material.uniforms.mouse3D.value = mouse3D; 
+               // earthSphere.material.uniforms.mouse3D.value = mouse3D;
+                //earthSphereBackSide.material.uniforms.mouse3D.value = mouse3D;
+                //wireframe.material.uniforms.mouse3D.value = mouse3D;
+
                 geometry.attributes.size.needsUpdate = true;
                 if(seismicParticleSystem)
                     seismicParticleSystem.material.uniforms.time.value = time * 40.;
 
                 // evolveSmoke();
+                scene.rotation.y += 0.001;
                 //console.log(camera.position);
                 renderer.render( scene, camera );
                 
@@ -688,7 +701,7 @@
 					vertexColors: true
 				} );
                 
-				var radiusS =  radius + 0.001;
+				var radiusS =  radius + 0.01;
 				var geometry = new THREE.BufferGeometry();
                 var positions = [];
                 var epicenters = [];
@@ -741,7 +754,7 @@
                             // Version using noise distance to epicenter
                             // 2D circle var nx = 
                             var d = new THREE.Vector3(x,y,z).distanceTo(pos);
-                            if(d < maxDistanceToEpicenter / 4 + 2 * magnitude / 10){
+                            if(d < maxDistanceToEpicenter / 4 + 2 * magnitude / 5){
                                 
                                 positions.push(pos.x, pos.y, pos.z); 
                                 epicenters.push(x, y, z); 
