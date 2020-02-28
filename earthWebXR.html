@@ -250,7 +250,7 @@
             
 			function init() {
 
-				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 5000 );
+				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.02, 5000 );
 				//camera.position.y = 400;
                 scene = new THREE.Scene();
 
@@ -274,10 +274,10 @@
                 var geometryC = new THREE.BoxGeometry( 0.1,0.1,0.1 );
                 var materialC = new THREE.MeshBasicMaterial( {color: 0x00ff00, side: THREE.DoubleSide} );
                 var cube = new THREE.Mesh( geometryC, materialC );
-                cube.position.copy(0.,0.,2.);
+                // cube.position.copy(0,0.1,0.5);
                 scene.add( cube );           // scene.add( cube );
 
-           /*     
+       /*    
                 controls = new OrbitControls( camera, renderer.domElement );
                 controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
 				controls.dampingFactor = 0.05;
@@ -508,7 +508,7 @@
 
 
 
-                getSeismicData();
+               // getSeismicData();
 
 			}
 
