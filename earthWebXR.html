@@ -87,9 +87,9 @@
  */              
 
                 // Pos as text intro
-                if(modeVisu < 1 && (time - 8. ) < 1. ){
+                if(modeVisu < 1 && (time - 10. ) < 1. ){
                   //  vec3 interpolatedPos = mix(position, positionIntroText, max(1. - (time - 8.), 0.));
-                    vec3 interpolatedPos = mix(position, positionIntroText, max(1. - (time - 8. * coords.x ), 0.));
+                    vec3 interpolatedPos = mix(position, positionIntroText, max(1. - (time - 10. * coords.x ), 0.));
                     gl_Position = projectionMatrix * modelViewMatrix * vec4( interpolatedPos, 1.0 );
                 }
 
@@ -540,6 +540,8 @@
 			function render() {
 
                 time += 0.001;
+                if(time > 1) time = 0;
+                //console.log(time);
                 if(timeSinceMove > 0 ) timeSinceMove -= 0.02;
                 //cloudsSphere.rotation.y = time / 10.;
                 particleSystemEarth.material.uniforms.time.value = time * 40.;
