@@ -254,7 +254,7 @@
 				camera.position.y = 400;
                 scene = new THREE.Scene();
 
-                renderer = new THREE.WebGLRenderer({antialias:true});
+                renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
                 renderer.xr.enabled = true;
 				renderer.setPixelRatio( window.devicePixelRatio );
                 renderer.setSize( window.innerWidth, window.innerHeight );
@@ -267,6 +267,9 @@
 
 				var container = document.getElementById( 'container' );
                 container.appendChild( renderer.domElement );
+
+                // XR Part
+                document.body.appendChild( ARButton.createButton( renderer ) );
                 
                 controls = new OrbitControls( camera, renderer.domElement );
                 controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
