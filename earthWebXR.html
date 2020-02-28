@@ -271,6 +271,12 @@
                 // XR Part
                 document.body.appendChild( ARButton.createButton( renderer ) );
                 
+                var geometryC = new THREE.BoxGeometry( 0.1,0.1,0.1 );
+                var materialC = new THREE.MeshBasicMaterial( {color: 0x00ff00, side: THREE.DoubleSide} );
+                var cube = new THREE.Mesh( geometryC, materialC );
+                cube.position.copy(0.,0.,2.);
+                scene.add( cube );           // scene.add( cube );
+
            /*     
                 controls = new OrbitControls( camera, renderer.domElement );
                 controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
