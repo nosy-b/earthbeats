@@ -39,7 +39,7 @@
                 vPosition = position;
                 vDeltaPos = 1.;
 				vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-				gl_PointSize = max(size, 4.) * ( 300.0 / -mvPosition.z );
+				gl_PointSize = 1.; //  max(size, 4.) * ( 300.0 / -mvPosition.z );
                 gl_Position = projectionMatrix * mvPosition;
                 crossProduct = min( 0.4 + 1. - acos( dot(normalize(position), normalize(cameraPosition))), 1.);
                 if(modeVisu > 0){
@@ -250,8 +250,8 @@
             
 			function init() {
 
-				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 5000 );
-				camera.position.y = 400;
+				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 1, 5000 );
+				//camera.position.y = 400;
                 scene = new THREE.Scene();
 
                 renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
@@ -271,13 +271,14 @@
                 // XR Part
                 document.body.appendChild( ARButton.createButton( renderer ) );
                 
+           /*     
                 controls = new OrbitControls( camera, renderer.domElement );
                 controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
 				controls.dampingFactor = 0.05;
 				controls.screenSpacePanning = false;
 				controls.minDistance = 100;
 				controls.maxDistance = 2000;
-
+*/
 
 				uniforms = {
                     time: {value: time},
@@ -516,12 +517,8 @@
 			}
 
 			function animate() {
-                controls.update(); 
+              //  controls.update(); 
 
-               // if( seismicParticleSystem && seismicParticleSystem.scale.x < 1)
-               //     seismicParticleSystem.scale.addScalar(0.04);
-               //if( seismicParticleSystem && seismicParticleSystem.material.opacity < 1)
-              //      seismicParticleSystem.material.opacity += 0.01;
 				requestAnimationFrame( animate );
 				render();
 			}
@@ -684,7 +681,7 @@
 					vertexColors: true
 				} );
                 
-				var radius = 200 + 2;
+				var radius =  2 //200 + 2;
 				var geometry = new THREE.BufferGeometry();
                 var positions = [];
                 var epicenters = [];
@@ -694,9 +691,9 @@
 				var color = new THREE.Color();
 
                 var nbParticlesPerSeism = 4000;
-                var noise = 0.10;
-                var maxDistanceToEpicenter = 15;
-                var geometryCone = new THREE.SphereBufferGeometry(7,4,4);//THREE.ConeGeometry( 5, 20, 32 );
+                var noise = 0.001;//  0.10;
+                var maxDistanceToEpicenter = 0.1// 15;
+                var geometryCone = new THREE.SphereBufferGeometry(0.07,0.04,0.04); // new THREE.SphereBufferGeometry(7,4,4);
 
                 var materialCone = new THREE.MeshBasicMaterial( {color: 0xffff00, transparent: true, opacity:0.0} );
 
@@ -711,7 +708,7 @@
                         var evt = seismicArray[i];
                         var lon = Math.PI + parseFloat(evt.longitude) / 180 * Math.PI;
                         var lat = Math.PI / 2 - parseFloat(evt.latitude) / 180 * Math.PI;
-                        var magnitude = parseFloat(evt.Magnitude);
+                        var magnitude = parseFloat(evt.Magnitude) * 0.01;
                         var x = - radius * Math.cos(lon) * Math.sin(lat);
                         var y = radius * Math.cos(lat);
                         var z = radius * Math.sin(lon) * Math.sin(lat); 
