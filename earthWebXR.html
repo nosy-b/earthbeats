@@ -218,7 +218,7 @@
             var allEarthquakeCenterObjects = [];
             var raycaster = new THREE.Raycaster();
             var mouse = new THREE.Vector2();
-            var radius = 0.2;
+            var radius = 0.14;
 
             // XR Part
             var controller;
@@ -715,9 +715,8 @@
                 var nbParticlesPerSeism = 4000;
                 var noise = 0.06;//  0.10;
                 var maxDistanceToEpicenter = 0.01// 15;
-                var geometryCone = new THREE.SphereBufferGeometry(0.007,0.04,0.04); // new THREE.SphereBufferGeometry(7,4,4);
-
-                var materialCone = new THREE.MeshBasicMaterial( {color: 0xffff00, transparent: false, opacity:0.8} );
+                var geometryCone = new THREE.SphereBufferGeometry(0.005, 6, 6); // new THREE.SphereBufferGeometry(7,4,4);
+                var materialCone = new THREE.MeshBasicMaterial( {color: 0xffff00, transparent: true, opacity:0.8} );
 
                 var divInfo = document.getElementById('info');
                 divInfo.innerText = "Showing " + seismicArray.length + " earthquakes for the last 24 hours";
@@ -756,7 +755,7 @@
                             // Version using noise distance to epicenter
                             // 2D circle var nx = 
                             var d = new THREE.Vector3(x,y,z).distanceTo(pos);
-                            if(d < maxDistanceToEpicenter / 4 + 2 * magnitude / 5){
+                            if(d < maxDistanceToEpicenter / 4 + 1 * magnitude / 5){
                                 
                                 positions.push(pos.x, pos.y, pos.z); 
                                 epicenters.push(x, y, z); 
