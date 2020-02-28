@@ -126,9 +126,9 @@
                 gl_FragColor.a = crossProduct * pointSpriteTexture.a * 8.; // * 0.8;
 
                 if(modeVisu > 0){
-                    float normalizedColor = vDeltaPos / 40.;
+                    float normalizedColor = vDeltaPos / 50.;
                     gl_FragColor = vec4(vColor + vec3( normalizedColor ), 0.5); // //vec4(1.,0.,0., max(crossProduct, 0.01) );
-                    gl_FragColor.a = crossProduct * pointSpriteTexture.a * 10. * max(normalizedColor, 0.2);
+                    gl_FragColor.a = crossProduct * pointSpriteTexture.a * 8. * max(normalizedColor, 0.2);
                 }
 
                 gl_FragColor.xyz = mix(gl_FragColor.xyz, vec3(1.,0.,0.5), vDisplacementRadar * 25.);
@@ -712,12 +712,12 @@
                 var coords =  [];
 				var color = new THREE.Color();
 
-                var nbParticlesPerSeism = 6000;
+                var nbParticlesPerSeism = 4000;
                 var noise = 0.06;//  0.10;
                 var maxDistanceToEpicenter = 0.01// 15;
-                var geometryCone = new THREE.SphereBufferGeometry(0.07,0.04,0.04); // new THREE.SphereBufferGeometry(7,4,4);
+                var geometryCone = new THREE.SphereBufferGeometry(0.007,0.04,0.04); // new THREE.SphereBufferGeometry(7,4,4);
 
-                var materialCone = new THREE.MeshBasicMaterial( {color: 0xffff00, transparent: true, opacity:0.0} );
+                var materialCone = new THREE.MeshBasicMaterial( {color: 0xffff00, transparent: false, opacity:0.8} );
 
                 var divInfo = document.getElementById('info');
                 divInfo.innerText = "Showing " + seismicArray.length + " earthquakes for the last 24 hours";
@@ -761,7 +761,7 @@
                                 positions.push(pos.x, pos.y, pos.z); 
                                 epicenters.push(x, y, z); 
                                 coords.push(lon, lat);
-                                colors.push(d / maxDistanceToEpicenter / 4 + 6 * magnitude ,0.,1.);
+                                colors.push(d / maxDistanceToEpicenter / 4 + 0.6 * magnitude ,0.,1.);
                                 sizes.push(magnitude); // We use it for magnitude
                             }
                         }
