@@ -56,7 +56,7 @@
                 if(modeVisu > 0){
                     gl_PointSize = 12.;
                     float distToEpicentre = distance(position, epicenter) * 10000000.;
-                    vDeltaPos = 10. * sin(distToEpicentre / 2. - time * size / 3.);  // size is magnitude (dirty reuse of ) // 10. * sin(distToEpicentre / 4. - time * 2.);
+                    vDeltaPos = 100. * sin(distToEpicentre / 2. - time * size / 3.);  // size is magnitude (dirty reuse of ) // 10. * sin(distToEpicentre / 4. - time * 2.);
                     vec3 nPosition = position * (1. + vDeltaPos / (distToEpicentre * 100.) );
                     gl_Position = projectionMatrix * modelViewMatrix * vec4( nPosition, 1.0 );
                 }
@@ -73,7 +73,7 @@
                 }
 
                 // When mouse over earthquake we shake earth locally
-                if(distFromMouse < .005){
+                if(distFromMouse < .01){
                     vec3 newPosition = position * (1. + 0.1 * sin(distFromMouse * 4. - time * 2.) /  (distFromMouse * 1000.));
                     gl_Position = projectionMatrix * modelViewMatrix * vec4( newPosition, 1.0 );
                 }
@@ -123,10 +123,10 @@
                 vec4 pointSpriteTexture = texture2D( pointTexture, gl_PointCoord );
                 vec4 earthMap = texture2D( earthNightTexture, vCoords ) * 4.; // + texture2D( earthTexture, vCoords ) * 0.4;
                 gl_FragColor =  crossProduct * earthMap; // pointSpriteTexture;
-                gl_FragColor.a = crossProduct * pointSpriteTexture.a * 10.; // * 0.8;
+                gl_FragColor.a = crossProduct * pointSpriteTexture.a * 8.; // * 0.8;
 
                 if(modeVisu > 0){
-                    float normalizedColor = vDeltaPos / 50.;
+                    float normalizedColor = vDeltaPos / 40.;
                     gl_FragColor = vec4(vColor + vec3( normalizedColor ), 0.5); // //vec4(1.,0.,0., max(crossProduct, 0.01) );
                     gl_FragColor.a = crossProduct * pointSpriteTexture.a * 10. * max(normalizedColor, 0.2);
                 }
@@ -712,8 +712,8 @@
                 var coords =  [];
 				var color = new THREE.Color();
 
-                var nbParticlesPerSeism = 4000;
-                var noise = 0.1;//  0.10;
+                var nbParticlesPerSeism = 6000;
+                var noise = 0.06;//  0.10;
                 var maxDistanceToEpicenter = 0.01// 15;
                 var geometryCone = new THREE.SphereBufferGeometry(0.07,0.04,0.04); // new THREE.SphereBufferGeometry(7,4,4);
 
