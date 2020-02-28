@@ -39,7 +39,7 @@
                 vPosition = position;
                 vDeltaPos = 1.;
 				vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-				gl_PointSize = 1.; //  max(size, 4.) * ( 300.0 / -mvPosition.z );
+				gl_PointSize = 8.; //  max(size, 4.) * ( 300.0 / -mvPosition.z );
                 gl_Position = projectionMatrix * mvPosition;
                 crossProduct = min( 0.4 + 1. - acos( dot(normalize(position), normalize(cameraPosition))), 1.);
                 if(modeVisu > 0){
@@ -250,7 +250,7 @@
             
 			function init() {
 
-				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 1, 5000 );
+				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 5000 );
 				//camera.position.y = 400;
                 scene = new THREE.Scene();
 
